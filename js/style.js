@@ -1,5 +1,6 @@
 var tbodyList = document.querySelector(".list-product tbody");
 var cartProduct = document.querySelector(".cart-product");
+var checkAll = document.querySelector("#checkall");
 var carts = [];
 
 var listProduct = [
@@ -54,12 +55,12 @@ btnsAddProduct.forEach(function (btnAdd) {
             name: listProduct[this.dataset.btnadd].name,
             price: listProduct[this.dataset.btnadd].price,
             amount:
-                this.previousElementSibling.value > 0
-                    ? this.previousElementSibling.value
+                Number(this.previousElementSibling.value) > 0
+                    ? Number(this.previousElementSibling.value)
                     : alert("Số lượng sản phẩm không đúng") = undefined,
             total:
                 listProduct[this.dataset.btnadd].price *
-                this.previousElementSibling.value,
+                Number(this.previousElementSibling.value),
         };
 
         var checkDuplicate = carts.some(function (item) {
@@ -80,9 +81,6 @@ btnsAddProduct.forEach(function (btnAdd) {
             renderCart();
             eventProduct();
         }
-        localStorage.setItem('data', JSON.stringify(carts))
-        carts = JSON.parse(localStorage.getItem('data'))
-        renderCart()
     });
 });
 
@@ -103,15 +101,17 @@ function totalPrice() {
 }
 
 function renderCart() {
+    localStorage.setItem('data', JSON.stringify(carts))
     var listCart = carts
         .map(function (cart, index) {
             return `<tr>
         <td>${index + 1}</td>
         <td>${cart.name}</td>
         <td>${cart.price}</td>
-        <td><input value=${cart.amount} type=number></input></td>
+        <td><input value=${cart.amount} min="0" type="number" class="input-amount"></td>
         <td>${cart.total}</td>
         <td><button data-btnremove=${index} class="remove">Xóa</button></td>
+        <td><input type="checkbox" class="input-select" data-checkbox=${index}></td>
     </tr>`;
         })
         .join("");
@@ -124,6 +124,7 @@ function renderCart() {
         <th style="width: 10%;">Số lượng</th>
         <th style="width: 20%;">Thành tiền</th>
         <th style="width: 10%;">Xóa</th>
+        <th style="width: 10%;">#</th>
         </tr>
     </thead>
     <tbody>
@@ -131,15 +132,19 @@ function renderCart() {
     <tr>
     <td colspan="3">Tổng</td>
     <td>${totalAmount()}</td>
-    <td colspan="2">${totalPrice()}</td>
+    <td colspan="3">${totalPrice()}</td>
     </tr>
     </tbody>
 </table>
 <hr>
 <button class="remove-all">Xóa giỏ hàng</button>;
-<button class="update">Cập nhật giỏ hàng</button>`;
+<button class="update">Cập nhật giỏ hàng</button>
+<button class="remove-checkbox">Xóa mục đã chọn</button>
+`;
 
     cartProduct.innerHTML = tableCart;
+    checkAll.checked = false
+    selectCheckBox()
 }
 
 function eventProduct() {
@@ -152,43 +157,135 @@ function eventProduct() {
                 if (carts.length === 0) {
                     noProduct();
                 }
-                localStorage.setItem('data', JSON.stringify(carts))
             }
         }
         if (e.target.closest(".remove-all")) {
             if (confirm("Bạn có chắc chắn muốn xóa toàn bộ giỏ hàng?")) {
                 carts = [];
+                localStorage.setItem('data', JSON.stringify(carts));
+                checkAll.checked = false;
                 noProduct();
-                localStorage.setItem('data', JSON.stringify(carts))
             }
         }
         if (e.target.closest(".update")) {
             alert('Cập nhật giỏ hàng thành công')
             newProduct()
         }
+        if (e.target.closest(".remove-checkbox")) {
+            var checkAllSelectChecked = checkAllInputChecked(false)
+            var getAllInputSelect = document.querySelectorAll('.input-select')
+
+            if (!checkAllSelectChecked) {
+                checkAllSelectChecked = checkAllInputChecked(true)
+                if (checkAllSelectChecked) {
+                    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ giỏ hàng?')) {
+                        var arrInputChecked = Array.from(getAllInputSelect).filter(function (input) {
+                            return input.checked === true
+                        })
+
+                        arrInputChecked.forEach(function () {
+                            carts.splice(0, 1)
+                        })
+                        renderCart()
+                        if (carts.length === 0) {
+                            noProduct();
+                        }
+                    }
+                } else {
+                    if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+                        var arrHollow = []
+                        var arrInputChecked = Array.from(getAllInputSelect).filter(function (input) {
+                            return input.checked === false
+                        })
+                        arrInputChecked.forEach(function (item, index) {
+                            var tdtext = item.parentElement.parentElement.querySelector('td:nth-of-type(2)').innerText
+                            var satisfy = carts.find(function (item) {
+                                return item.name === tdtext
+                            })
+                            arrHollow.push(satisfy)
+                        })
+                        carts = arrHollow
+                        renderCart()
+                        if (carts.length === 0) {
+                            noProduct();
+                        }
+                    }
+                }
+            } else {
+                alert('Bạn chưa chọn sản phẩm nào')
+            }
+        }
     };
 }
 
+function checkAllInputChecked(isChecked) {
+    var getAllInputSelect = document.querySelectorAll('.input-select')
+    return Array.from(getAllInputSelect).every(function (item) {
+        return item.checked === isChecked
+    })
+}
+
 function newProduct() {
-    var allInputCart = document.querySelectorAll('.cart-product input')
+    var allInputCart = document.querySelectorAll('.cart-product .input-amount')
     carts = carts.map(function (item, index) {
         return {
             name: item.name,
             price: item.price,
-            amount: allInputCart[index].value,
+            amount: Number(allInputCart[index].value),
             total:
                 item.price *
                 allInputCart[index].value,
         }
     })
-
     carts = carts.filter(function (item) {
         return item.amount > 0
     })
-    localStorage.setItem('data', JSON.stringify(carts))
     renderCart()
     if (carts.length === 0) {
         noProduct();
+    }
+}
+
+checkAll.addEventListener('change', function () {
+    if (carts.length > 0) {
+        if (this.checked) {
+            handleCheckAll(true)
+        } else {
+            handleCheckAll(false)
+        }
+    } else {
+        alert('Giỏ hàng chưa có sản phẩm')
+        this.checked = false
+    }
+})
+
+function handleCheckAll(isCheck) {
+    var getAllInputSelect = document.querySelectorAll('.input-select')
+    getAllInputSelect.forEach(function (input) {
+        input.checked = isCheck
+    })
+}
+
+function selectCheckBox() {
+    var getAllInputSelect = document.querySelectorAll('.input-select')
+    getAllInputSelect.forEach(function (input) {
+        input.onchange = function () {
+            handleInputSelect()
+        }
+    })
+}
+
+function handleInputSelect() {
+    var getAllInputSelect = document.querySelectorAll('.input-select')
+    if (getAllInputSelect.length > 0) {
+        var inpitIsChecked = Array.from(getAllInputSelect).filter(function (input) {
+            return input.checked === true
+        })
+        if (carts.length == inpitIsChecked.length) {
+            checkAll.checked = true
+        } else {
+            checkAll.checked = false
+        }
     }
 }
 
@@ -199,6 +296,8 @@ function saveProduct() {
     if (carts.length === 0) {
         noProduct();
     }
+    handleInputSelect()
+    selectCheckBox()
 }
 
 saveProduct()
